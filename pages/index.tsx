@@ -1,7 +1,6 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import _ from 'lodash';
-import MazeGame from '@/components/MazeGame/MazeGame';
 import { useRouter } from 'next/router';
 
 interface KillForm {
@@ -224,7 +223,7 @@ const KnarkGame: React.FC = () => {
   };
 
   const Currency = (number: number) => {
-    let num = new String(number);
+    let num = new String(Math.round(number));
     if (num.indexOf('.') === -1) {
       num += '.00';
     }
@@ -262,21 +261,21 @@ const KnarkGame: React.FC = () => {
     if (x === 1) {
       let xx = random(12);
       if (xx === 4) {
-        alert('Frälsningarmen delar ut gratis LSD, priserna är skitlåga!');
+        alert('Salvation army is handing out LSD, prices are plummeting!!');
         drugs[2].price = 100 + random(35);
       }
       if (xx === 2) {
-        alert('Uteliggarna är desperata och köper Tjack för dyra pengar.');
+        alert('The homeless are desperate and buying Tjack for a lot of money.');
         drugs[8].price = 1000 + random(500);
       }
       if (xx === 3) {
-        alert('Marijuanan är väldigt billig just nu.');
+        alert('Marijuana is very cheap right now.');
         drugs[0].price = 10 + random(100);
       }
       if (xx === 5) {
         let lost = random(2000);
         if (cash - lost < 0) lost = cash;
-        alert('Du blev rånad på ' + Currency(lost));
+        alert('You got mugged , you lost $' + Currency(lost));
         setCash(cash - lost);
         if (cash < 0) setCash(0);
       }
@@ -342,7 +341,7 @@ const KnarkGame: React.FC = () => {
       if (xx === 15) {
         let x = 500 + random(100);
         let x2 = confirm(
-          'Vill du modifiera din knarksäljarjacka, så att den rymmer 50 påsar till för ynka ' +
+          'Do you want to modify your pouch to hold another 50 drugs for ' +
             Currency(x) +
             '?',
         );
@@ -350,15 +349,15 @@ const KnarkGame: React.FC = () => {
           setCash(cash - Number(x));
           setSAvail(sAvail + 50);
         } else if (x2 === true && cash < x) {
-          alert('Du har för lite stålar ser jag!');
+          alert('Not enough cash!');
         }
       }
       if (xx === 16) {
-        alert('Pounders betalar mycket pengar för lite heroin.');
+        alert('Pounders pay alot of money for some golden brown.');
         drugs[x].price = 20000 + random(20000);
       }
       if (xx === 17 || xx === 13 || xx === 18) {
-        alert('Bången år här, det blir skottlossning!');
+        alert('Coppers are here, get ready for a shootout!');
         setGameLayer1(false);
         setGameLayer2(true);
         killForm.copText.value = '';
@@ -372,11 +371,11 @@ const KnarkGame: React.FC = () => {
   const sellit = () => {
     let sel: number = selectedDrugToSell;
     if (sel === -1) {
-      alert('Välj en drog först!');
+      alert('Choose a drug first!');
       return;
     }
     let promptInput = prompt(
-      'Hur  mycket ' + yourdrugs[sel].name + ' vill du sälja?',
+      'How much of ' + yourdrugs[sel].name + ' do you want to sell?',
       yourdrugs[sel].quantity.toString(),
     );
     if (promptInput === null) return;
@@ -384,15 +383,13 @@ const KnarkGame: React.FC = () => {
     let quantityToSellFromPrompt = parseInt(promptInput);
     if (quantityToSellFromPrompt > 0) {
       if (quantityToSellFromPrompt < 0) {
-        alert('Inga negativa tal, ditt såp!!');
+        alert('No negative numbers you idiot!!');
         return;
       }
       if (quantityToSellFromPrompt === 0) return;
       if (quantityToSellFromPrompt <= yourdrugs[sel].quantity) {
         setCash(cash + drugs[sel].price * quantityToSellFromPrompt);
-        setSLeft(sLeft - quantityToSellFromPrompt);
-        setSAvail(sAvail);
-
+        calculateSpaceLeft();
         if (yourdrugs[sel].quantity === quantityToSellFromPrompt) {
           yourdrugs.splice(sel, 1);
         } else {
@@ -400,7 +397,7 @@ const KnarkGame: React.FC = () => {
             yourdrugs[sel].quantity - quantityToSellFromPrompt;
         }
       } else {
-        alert('Slut på plats!!!');
+        alert('No more room!!!');
         return;
       }
     }
@@ -410,21 +407,18 @@ const KnarkGame: React.FC = () => {
   const buyit = () => {
     let sel = selectedDrugToBuy;
     if (sel === -1) {
-      alert('Välj en drog först!');
+      alert('Choose a drug first!');
       return;
     }
     let fromPrompt = prompt(
-      'Hur  mycket ' + drugs[sel].name + ' vill du ha?',
+      'How much of ' + drugs[sel].name + ' do you want to buy?',
       calcmax(drugs[sel].price).toString(),
     );
     if (fromPrompt === null) return;
 
     const quantity = parseInt(fromPrompt!);
-    console.log(
-      `Quantity: ${quantity}, Spots left is ${sLeft}, Total Cash is ${cash}, Spots Available : ${sAvail} , Total Cost of Drugs are : ${drugs[sel].price * Number(quantity)},Clause 1 is ${drugs[sel].price * quantity <= cash} Clause 2 is ${Number(sLeft) + Number(quantity) <= Number(sAvail)}`,
-    );
     if (quantity < 0) {
-      alert('Inga negativa tal, ditt såp!!');
+      alert('No negative numbers you idiot!!');
       return;
     }
     if (quantity === 0) return;
@@ -432,17 +426,33 @@ const KnarkGame: React.FC = () => {
       yourdrugs[sel] = { ...drugs[sel] };
       yourdrugs[sel].quantity = quantity;
       setCash(cash - drugs[sel].price * quantity);
-      setSLeft(sLeft + quantity);
+      calculateSpaceLeft();
       setGameLayer1(true);
       setGameLayer2(false);
     } else if (quantity > 0 && cash < drugs[sel].price * quantity) {
-      alert('Du har för lite stålar!');
+      alert('Not enough cash!');
       return;
     } else {
-      alert('Slut på plats!!!');
+      alert('No more room, must try harder on the school report!!');
       return;
     }
     clearSelections();
+  };
+
+  const calculateSpaceLeft = () => {
+    let totalHeldQuantity = 0;
+    for (var drug of yourdrugs) {
+      totalHeldQuantity += drug.quantity;
+    }
+
+    if (sAvail < totalHeldQuantity) {
+      alert(
+        'Not enough room the police confiscated all your drugs! You dirty hacker!!',
+      );
+      setYourDrugs([]);
+    } else {
+      setSLeft(sAvail - totalHeldQuantity);
+    }
   };
 
   const numberWithCommas = (x: number) => {
@@ -452,11 +462,10 @@ const KnarkGame: React.FC = () => {
 
   return (
     <>
-      {showMazeGame && <MazeGame></MazeGame>}
       {gameLayer2 && !showMazeGame && (
         <div id="gameLayer2" className="layerClass">
           <form name="killForm">
-            <p>Böngen trålar!</p>
+            <p>Coopers are here!!</p>
             <hr />
             <br />
             <table>
@@ -464,7 +473,7 @@ const KnarkGame: React.FC = () => {
                 <tr>
                   <td width="300" align="left">
                     <p className="b">
-                      <b>HJÄLTEN: </b>
+                      <b>HERO: </b>
                     </p>
                     <center>
                       <input
@@ -485,7 +494,7 @@ const KnarkGame: React.FC = () => {
                   </td>
                   <td width="300" align="right">
                     <p className="b">
-                      <b>BÖNGEN: </b>
+                      <b>COP: </b>
                     </p>
                     <center>
                       <input
@@ -508,13 +517,13 @@ const KnarkGame: React.FC = () => {
             <br />
             <input
               type="button"
-              value="Skjut en snut!"
+              value="Fire the gun!"
               className="copFightAction"
               onClick={killCops}
             />
             <input
               type="button"
-              value="Fly"
+              value="Run away"
               className="copFightAction"
               onClick={runAway}
             />
@@ -540,7 +549,7 @@ const KnarkGame: React.FC = () => {
                 readOnly
               />
               <br />
-              <p className="impClass">Plats för knark: </p>
+              <p className="impClass">Space left: </p>
               <div className="inventoryStatus">
                 <input
                   className="coatClass"
@@ -571,7 +580,7 @@ const KnarkGame: React.FC = () => {
                           onClick={buyit}
                         />
                         <br />
-                        <p className="impClass">Knark Till Salu:</p>
+                        <p className="impClass">Drugs for sale:</p>
                         <br />
                       </center>
                     </th>
@@ -585,7 +594,7 @@ const KnarkGame: React.FC = () => {
                           onClick={sellit}
                         />
                         <br />
-                        <p className="impClass">Ditt Knark:</p>
+                        <p className="impClass">Your drugs:</p>
                         <br />
                       </center>
                     </th>
@@ -598,8 +607,8 @@ const KnarkGame: React.FC = () => {
                         <table className="drugTable">
                           <thead>
                             <tr>
-                              <th className="drugColumn">Knark</th>
-                              <th className="drugColumn">Pris</th>
+                              <th className="drugColumn">Drug</th>
+                              <th className="drugColumn">Price</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -633,8 +642,8 @@ const KnarkGame: React.FC = () => {
                         <table className="drugTable">
                           <thead>
                             <tr>
-                              <th className="drugColumn">Knark</th>
-                              <th className="drugColumn">Pris</th>
+                              <th className="drugColumn">Drug</th>
+                              <th className="drugColumn">Price</th>
                             </tr>
                           </thead>
                           <tbody>
