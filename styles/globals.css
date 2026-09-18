@@ -1,9 +1,7 @@
 :root {
   --max-width: 1100px;
   --border-radius: 12px;
-  --font-mono: ui-monospace, Menlo, Monaco, 'Cascadia Mono', 'Segoe UI Mono',
-    'Roboto Mono', 'Oxygen Mono', 'Ubuntu Monospace', 'Source Code Pro',
-    'Fira Mono', 'Droid Sans Mono', 'Courier New', monospace;
+  /* Fonts live in styles/fonts.css (--font-game, --font-display, --font-mono) */
 
   --foreground-rgb: 0, 0, 0;
   --background-start-rgb: 214, 219, 220;
@@ -93,6 +91,7 @@ body {
       rgb(var(--background-end-rgb))
     )
     rgb(var(--background-start-rgb));
+  font-family: var(--font-game);
 }
 
 a {
@@ -268,7 +267,7 @@ a {
   border: none;
   background: transparent;
   color: #14201a;
-  font-family: 'IBM Plex Mono', 'Courier New', monospace;
+  font-family: var(--font-game);
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -312,7 +311,7 @@ a {
       transparent 3px
     ),
     var(--maze-bg);
-  font-family: 'IBM Plex Mono', 'Courier New', monospace;
+  font-family: var(--font-game);
   color-scheme: dark;
 }
 
@@ -353,6 +352,7 @@ a {
 }
 
 .mazeTitle {
+  font-family: var(--font-display);
   font-size: clamp(22px, 6vw, 34px);
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -716,7 +716,7 @@ a {
   background:
     radial-gradient(ellipse at top, rgba(255, 220, 140, 0.25), transparent 55%),
     linear-gradient(180deg, #cfc4ae 0%, var(--trade-paper) 40%, #d5cbb8 100%);
-  font-family: 'IBM Plex Mono', 'Courier New', monospace;
+  font-family: var(--font-game);
 }
 
 .tradeHeader {
@@ -1037,7 +1037,7 @@ a {
   color: #14201a;
   padding: 18px 18px 16px;
   box-shadow: 6px 8px 0 rgba(20, 32, 26, 0.35);
-  font-family: 'IBM Plex Mono', 'Courier New', monospace;
+  font-family: var(--font-game);
   color-scheme: light;
 }
 
@@ -1050,6 +1050,7 @@ a {
 }
 
 .gameNoticeTitle {
+  font-family: var(--font-display);
   font-size: 20px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -1146,7 +1147,7 @@ a {
       transparent 3px
     ),
     var(--shoot-bg);
-  font-family: 'IBM Plex Mono', 'Courier New', monospace;
+  font-family: var(--font-game);
   color-scheme: dark;
 }
 
@@ -1180,6 +1181,7 @@ a {
 }
 
 .shootTitle {
+  font-family: var(--font-display);
   font-size: clamp(28px, 8vw, 42px);
   letter-spacing: 0.08em;
   text-transform: uppercase;

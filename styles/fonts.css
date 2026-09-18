@@ -1,0 +1,47 @@
+/*
+ * Custom game font setup
+ * ----------------------
+ * When your friend finishes the font:
+ *
+ * 1. Drop files here:
+ *      public/fonts/ChemQuest-Regular.woff2
+ *      public/fonts/ChemQuest-Bold.woff2   (optional)
+ *
+ * 2. Uncomment the @font-face blocks below and set the real family name.
+ *
+ * 3. Update --font-game / --font-display in :root if the family name differs.
+ *
+ * Preferred formats: .woff2 (best) then .woff. Avoid shipping only .ttf/.otf
+ * for web if you can convert them.
+ *
+ * Until a custom font is ready, the stacks fall back to system mono fonts.
+ */
+
+@font-face {
+  font-family: 'ChemQuest';
+  src: local('ChemQuest');
+  /* src: url('/chemquest/fonts/ChemQuest-Regular.woff2') format('woff2'); */
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'ChemQuest';
+  src: local('ChemQuest');
+  /* src: url('/chemquest/fonts/ChemQuest-Bold.woff2') format('woff2'); */
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  /* Primary UI / body text for the game */
+  --font-game: 'ChemQuest', 'IBM Plex Mono', 'Courier New', monospace;
+
+  /* Big titles (shootout, maze, notices) — can point at the same file */
+  --font-display: 'ChemQuest', 'IBM Plex Mono', 'Courier New', monospace;
+
+  /* Keep existing mono token in sync so older styles pick it up too */
+  --font-mono: var(--font-game);
+}

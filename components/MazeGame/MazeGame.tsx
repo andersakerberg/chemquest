@@ -182,10 +182,19 @@ const MazeGame: React.FC<MazeGameProps> = ({ onEscape, onCaught }) => {
     setTimerKey((key) => key + 1);
   };
 
-  const advanceAlongPath = (cell: Cell) => {
+  const cellCenter = (cell: Cell): Point => {
+    const size = cellSizeRef.current;
+    return {
+      x: cell.x * size + size / 2,
+      y: cell.y * size + size / 2,
+    };
+  };
+
+  /** Returns true only when the player circle actually moved. */
+  const advanceAlongPath = (cell: Cell): boolean => {
     if (!isPath(cell.x, cell.y)) {
       applyWallPenalty();
-      return;
+      return false;
     }
 
     if (onWallRef.current) {
@@ -198,11 +207,11 @@ const MazeGame: React.FC<MazeGameProps> = ({ onEscape, onCaught }) => {
 
     if (!isAdjacentOrSame(playerRef.current, cell)) {
       applyWallPenalty();
-      return;
+      return false;
     }
 
     if (cell.x === playerRef.current.x && cell.y === playerRef.current.y) {
-      return;
+      return false;
     }
 
     playerRef.current = cell;
@@ -211,6 +220,14 @@ const MazeGame: React.FC<MazeGameProps> = ({ onEscape, onCaught }) => {
     if (cell.y === 0) {
       finishWin();
     }
+    return true;
+  };
+
+  const appendTrail = (point: Point) => {
+    setTrail((prev) => {
+      const next = [...prev, point];
+      return next.length > 800 ? next.slice(next.length - 800) : next;
+    });
   };
 
   const handleDrawPoint = (point: Point) => {
@@ -220,11 +237,6 @@ const MazeGame: React.FC<MazeGameProps> = ({ onEscape, onCaught }) => {
     const last = lastPixelRef.current;
     const samples = last ? sampleLine(last, point) : [point];
     lastPixelRef.current = point;
-
-    setTrail((prev) => {
-      const next = [...prev, ...samples];
-      return next.length > 800 ? next.slice(next.length - 800) : next;
-    });
 
     for (const sample of samples) {
       if (
@@ -236,7 +248,12 @@ const MazeGame: React.FC<MazeGameProps> = ({ onEscape, onCaught }) => {
         applyWallPenalty();
         continue;
       }
-      advanceAlongPath(pixelToCell(sample));
+
+      const moved = advanceAlongPath(pixelToCell(sample));
+      // Trail follows the circle only — never freehand into walls / gaps
+      if (moved) {
+        appendTrail(cellCenter(playerRef.current));
+      }
       if (finishedRef.current) break;
     }
   };
@@ -260,8 +277,9 @@ const MazeGame: React.FC<MazeGameProps> = ({ onEscape, onCaught }) => {
 
     setDrawing(true);
     onWallRef.current = false;
-    lastPixelRef.current = point;
-    setTrail((prev) => [...prev, point]);
+    const startPoint = cellCenter(playerRef.current);
+    lastPixelRef.current = startPoint;
+    appendTrail(startPoint);
     setPulseIndicatorProps({
       color: 'success',
       text: t('maze.traceAlley'),
