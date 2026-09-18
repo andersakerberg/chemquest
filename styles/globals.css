@@ -1376,6 +1376,17 @@ a {
   box-shadow: 0 0 16px rgba(62, 207, 106, 0.3);
 }
 
+.shootRun:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  box-shadow: none;
+  filter: grayscale(0.4);
+}
+
+.shootRun:disabled:active {
+  transform: none;
+}
+
 @media (min-width: 560px) {
   .shootActions {
     grid-template-columns: 1fr 1fr;

@@ -101,6 +101,7 @@
     "fireSub": "blast the cop",
     "run": "RUN!!",
     "runSub": "maze escape",
+    "runLocked": "too late — you opened fire",
     "cornered": "The cops have you cornered. Draw or bolt.",
     "youHit": "You blasted the cop for {{damage}} damage.",
     "copHit": "Cop returned fire — {{damage}} damage to you!!"

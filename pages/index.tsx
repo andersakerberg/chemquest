@@ -100,6 +100,7 @@ const KnarkGame: React.FC = () => {
   const [oldScore, setOldScore] = useState(0);
   const [noticeQueue, setNoticeQueue] = useState<GameNoticeData[]>([]);
   const [combatLog, setCombatLog] = useState<string[]>([]);
+  const [hasFired, setHasFired] = useState(false);
 
   const pushNotice = useCallback(
     (
@@ -208,6 +209,7 @@ const KnarkGame: React.FC = () => {
     setShowMazeGame(false);
     setYourHp(MAX_HP);
     setCopHp(MAX_HP);
+    setHasFired(false);
     setCombatLog([t('shoot.cornered')]);
   };
 
@@ -373,6 +375,7 @@ const KnarkGame: React.FC = () => {
   };
 
   const killCops = () => {
+    setHasFired(true);
     const heroHit = random(20);
     const nextCopHp = copHp - heroHit;
     setCopHp(nextCopHp);
@@ -418,6 +421,7 @@ const KnarkGame: React.FC = () => {
   };
 
   const runAway = () => {
+    if (hasFired) return;
     setGameLayer2(false);
     setGameLayer1(false);
     setShowMazeGame(true);
@@ -472,6 +476,7 @@ const KnarkGame: React.FC = () => {
           yourHp={yourHp}
           copHp={copHp}
           combatLog={combatLog}
+          canRun={!hasFired}
           onFire={killCops}
           onRun={runAway}
         />

@@ -101,6 +101,7 @@
     "fireSub": "ge snuten järnet",
     "run": "SPRING!!",
     "runSub": "labyrintfuga",
+    "runLocked": "för sent — du har skjutit",
     "cornered": "Snuten har dig i ett hörn. Skjut eller stick.",
     "youHit": "Du träffade snuten för {{damage}} skada.",
     "copHit": "Snuten sköt tillbaka — {{damage}} skada på dig!!"

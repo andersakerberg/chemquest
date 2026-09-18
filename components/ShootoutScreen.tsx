@@ -7,6 +7,7 @@ interface ShootoutScreenProps {
   yourHp: number;
   copHp: number;
   combatLog: string[];
+  canRun: boolean;
   onFire: () => void;
   onRun: () => void;
 }
@@ -36,6 +37,7 @@ const ShootoutScreen: React.FC<ShootoutScreenProps> = ({
   yourHp,
   copHp,
   combatLog,
+  canRun,
   onFire,
   onRun,
 }) => {
@@ -105,9 +107,16 @@ const ShootoutScreen: React.FC<ShootoutScreenProps> = ({
             <span className="shootBtnMain">{t('shoot.fire')}</span>
             <span className="shootBtnSub">{t('shoot.fireSub')}</span>
           </button>
-          <button type="button" className="shootBtn shootRun" onClick={onRun}>
+          <button
+            type="button"
+            className="shootBtn shootRun"
+            onClick={onRun}
+            disabled={!canRun}
+          >
             <span className="shootBtnMain">{t('shoot.run')}</span>
-            <span className="shootBtnSub">{t('shoot.runSub')}</span>
+            <span className="shootBtnSub">
+              {canRun ? t('shoot.runSub') : t('shoot.runLocked')}
+            </span>
           </button>
         </div>
       </div>
