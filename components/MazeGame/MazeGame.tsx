@@ -1,18 +1,29 @@
 // src/MazeGame.tsx
 
-import React, { useEffect, useState } from 'react';
-import GameBoard from '@/components/MazeGame/GameBoard';
+import React, { useEffect, useRef, useState } from 'react';
+import GameBoard, { CELL_SIZE } from '@/components/MazeGame/GameBoard';
 import PulseIndicator, { PulseIndicatorProps } from './PulseIndicator';
 import { CountdownCircleTimer } from 'react-countdown-circle-timer';
 
-interface AlreadyMadeMove {
+interface Cell {
   x: number;
   y: number;
 }
 
-const MazeGame: React.FC = () => {
-  const maxPresses = 5;
-  const bpmTreshold = 6000;
+interface Point {
+  x: number;
+  y: number;
+}
+
+interface MazeGameProps {
+  onEscape: () => void;
+  onCaught: () => void;
+}
+
+const INITIAL_TIME = 30;
+const WALL_PENALTY = 4;
+
+const MazeGame: React.FC<MazeGameProps> = ({ onEscape, onCaught }) => {
   const road = [
     [0, 0, 0, 1, 0, 0, 0, 0],
     [0, 0, 0, 1, 1, 1, 0, 0],
@@ -29,94 +40,219 @@ const MazeGame: React.FC = () => {
     [0, 0, 0, 1, 0, 0, 0, 0],
     [0, 0, 0, 1, 0, 0, 0, 0],
   ];
-  const [playerPosition, setPlayerPosition] = useState({
-    x: 3,
-    y: road.length - 1,
-  });
-  const [presses, setPresses] = useState(0);
-  const [moving, setIsMoving] = useState(false);
-  const [alreadyMadeMoves, setAlreadyMadeMoves] = useState<AlreadyMadeMove[]>(
-    [],
-  );
-  const [pulseIndicatorProps, setPulseIndicatorProps] =
-    useState<PulseIndicatorProps>({ color: 'danger', text: 'PRESS HARDER!!' });
-  const [bpm, setBpm] = useState(0);
+
+  const startCell: Cell = { x: 3, y: road.length - 1 };
+  const [playerPosition, setPlayerPosition] = useState<Cell>(startCell);
+  const [trail, setTrail] = useState<Point[]>([]);
+  const [drawing, setDrawing] = useState(false);
   const [gameOver, setGameOver] = useState(false);
   const [gameOverText, setGameOverText] = useState('YOU MANAGED TO ESCAPE!!');
+  const [timerKey, setTimerKey] = useState(0);
+  const [timerDuration, setTimerDuration] = useState(INITIAL_TIME);
+  const [pulseIndicatorProps, setPulseIndicatorProps] =
+    useState<PulseIndicatorProps>({
+      color: 'warning',
+      text: 'DRAW ALONG THE PATH TO ESCAPE!!',
+    });
 
-  const isMoveAllowed = (x: number, y: number) => {
-    if (y > road?.length) return false;
-    if (x > road[y]?.length) return false;
-    if (road[y] && road[y][x] === 1) {
-      if (alreadyMadeMoves.find((move) => move.x == x && move.y == y)) {
-        return false;
-      }
+  const finishedRef = useRef(false);
+  const boardRef = useRef<HTMLDivElement>(null);
+  const playerRef = useRef<Cell>(startCell);
+  const remainingRef = useRef(INITIAL_TIME);
+  const onWallRef = useRef(false);
+  const lastPixelRef = useRef<Point | null>(null);
 
-      return true;
-    }
-    return false;
+  const finishWin = () => {
+    if (finishedRef.current) return;
+    finishedRef.current = true;
+    setDrawing(false);
+    setGameOverText('YOU MANAGED TO ESCAPE!!');
+    setGameOver(true);
+    onEscape();
   };
 
-  const updatePulseIndicator = () => {
-    let color = 'danger';
-    let text = 'PRESS HARDER!!! THE COPS ARE COMING!!!';
+  const finishLose = () => {
+    if (finishedRef.current) return;
+    finishedRef.current = true;
+    setDrawing(false);
+    setGameOverText('YOU GOT CAUGHT! SURRENDER YOUR ANUS!');
+    setGameOver(true);
+    onCaught();
+  };
 
-    if (bpm > bpmTreshold / 1000) {
-      if (bpm > (bpmTreshold / 1000) * 2) {
-        color = 'success';
-        text = 'AMAZING LETS GOOO!!!';
-      } else {
-        color = 'warning';
-        text = 'MORE STEAM NEEDED!!!';
-      }
+  const isPath = (x: number, y: number) => road[y]?.[x] === 1;
+
+  const isAdjacentOrSame = (a: Cell, b: Cell) =>
+    Math.abs(a.x - b.x) + Math.abs(a.y - b.y) <= 1;
+
+  const getLocalPoint = (event: React.PointerEvent<HTMLDivElement>): Point | null => {
+    const board = boardRef.current;
+    if (!board) return null;
+    const rect = board.getBoundingClientRect();
+    return {
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top,
+    };
+  };
+
+  const pixelToCell = (point: Point): Cell => ({
+    x: Math.floor(point.x / CELL_SIZE),
+    y: Math.floor(point.y / CELL_SIZE),
+  });
+
+  const sampleLine = (from: Point, to: Point): Point[] => {
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const steps = Math.max(1, Math.ceil(Math.hypot(dx, dy) / 4));
+    const points: Point[] = [];
+    for (let i = 1; i <= steps; i++) {
+      const t = i / steps;
+      points.push({
+        x: from.x + dx * t,
+        y: from.y + dy * t,
+      });
+    }
+    return points;
+  };
+
+  const applyWallPenalty = () => {
+    if (onWallRef.current || finishedRef.current || gameOver) return;
+    onWallRef.current = true;
+
+    const next = Math.max(0, remainingRef.current - WALL_PENALTY);
+    remainingRef.current = next;
+    setPulseIndicatorProps({
+      color: 'danger',
+      text: `WALL HIT! -${WALL_PENALTY}s!!`,
+    });
+
+    if (next <= 0) {
+      finishLose();
+      return;
     }
 
-    setPulseIndicatorProps({ color, text });
+    setTimerDuration(next);
+    setTimerKey((key) => key + 1);
+  };
+
+  const advanceAlongPath = (cell: Cell) => {
+    if (!isPath(cell.x, cell.y)) {
+      applyWallPenalty();
+      return;
+    }
+
+    if (onWallRef.current) {
+      onWallRef.current = false;
+      setPulseIndicatorProps({
+        color: 'success',
+        text: 'BACK ON PATH — KEEP DRAWING!!',
+      });
+    }
+
+    if (!isAdjacentOrSame(playerRef.current, cell)) {
+      // Jumped too far off continuous path — treat as leaving the route
+      applyWallPenalty();
+      return;
+    }
+
+    if (cell.x === playerRef.current.x && cell.y === playerRef.current.y) {
+      return;
+    }
+
+    playerRef.current = cell;
+    setPlayerPosition(cell);
+
+    if (cell.y === 0) {
+      finishWin();
+    }
+  };
+
+  const handleDrawPoint = (point: Point) => {
+    if (finishedRef.current || gameOver) return;
+
+    const last = lastPixelRef.current;
+    const samples = last ? sampleLine(last, point) : [point];
+    lastPixelRef.current = point;
+
+    setTrail((prev) => {
+      const next = [...prev, ...samples];
+      // Keep trail from getting huge on long strokes
+      return next.length > 800 ? next.slice(next.length - 800) : next;
+    });
+
+    for (const sample of samples) {
+      if (
+        sample.x < 0 ||
+        sample.y < 0 ||
+        sample.x >= (road[0]?.length ?? 0) * CELL_SIZE ||
+        sample.y >= road.length * CELL_SIZE
+      ) {
+        applyWallPenalty();
+        continue;
+      }
+      advanceAlongPath(pixelToCell(sample));
+      if (finishedRef.current) break;
+    }
+  };
+
+  const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (gameOver || finishedRef.current) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+
+    const point = getLocalPoint(event);
+    if (!point) return;
+
+    const cell = pixelToCell(point);
+    // Must start drawing from the current player cell
+    if (cell.x !== playerRef.current.x || cell.y !== playerRef.current.y) {
+      setPulseIndicatorProps({
+        color: 'danger',
+        text: 'START FROM THE RED DOT!!',
+      });
+      return;
+    }
+
+    setDrawing(true);
+    onWallRef.current = false;
+    lastPixelRef.current = point;
+    setTrail((prev) => [...prev, point]);
+    setPulseIndicatorProps({
+      color: 'success',
+      text: 'TRACE THE BLACK PATH!!',
+    });
+  };
+
+  const onPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!drawing || gameOver || finishedRef.current) return;
+    event.preventDefault();
+    const point = getLocalPoint(event);
+    if (!point) return;
+    handleDrawPoint(point);
+  };
+
+  const onPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    setDrawing(false);
+    lastPixelRef.current = null;
+    onWallRef.current = false;
+    if (!gameOver && !finishedRef.current) {
+      setPulseIndicatorProps({
+        color: 'warning',
+        text: 'DRAW ALONG THE PATH TO ESCAPE!!',
+      });
+    }
   };
 
   useEffect(() => {
-    setInterval(() => {
-      setBpm(0);
-      updatePulseIndicator();
-    }, bpmTreshold);
-  }, [bpmTreshold]);
-
-  const movePlayer = () => {
-    setBpm(bpm + 1);
-    if (moving) return;
-
-    setIsMoving(true);
-    if (presses !== maxPresses) {
-      setPresses(presses + 1);
-    } else {
-      setPresses(0);
-      let newX = playerPosition.x;
-      let newY = playerPosition.y;
-
-      if (isMoveAllowed(newX + 2, newY)) {
-        newX++;
-      } else if (isMoveAllowed(newX - 2, newY)) {
-        newX--;
-      } else if (isMoveAllowed(newX, newY - 1)) {
-        newY--;
-      } else if (isMoveAllowed(newX + 1, newY)) {
-        newX++;
-      } else if (isMoveAllowed(newX - 1, newY)) {
-        newX--;
-      }
-      setPlayerPosition({ x: newX, y: newY });
-      setAlreadyMadeMoves([...alreadyMadeMoves, { x: newX, y: newY }]);
-      if (newY === 0) {
-        setGameOver(true);
-      }
-    }
-    setIsMoving(false);
-  };
+    playerRef.current = playerPosition;
+  }, [playerPosition]);
 
   const renderTime = ({ remainingTime }: { remainingTime: number }) => {
+    remainingRef.current = remainingTime;
     if (remainingTime === 0) {
-      setGameOverText('YOU GOT CAUGHT! SURRENDER YOUR ANUS!');
-      setGameOver(true);
       return <div className="timer">GAME OVER</div>;
     }
     return (
@@ -125,31 +261,32 @@ const MazeGame: React.FC = () => {
       </div>
     );
   };
-  useEffect(() => {
-    updatePulseIndicator();
-  }, [presses]);
 
   return (
-    <div
-      onKeyDown={movePlayer}
-      onTouchStart={movePlayer}
-      tabIndex={0}
-      style={{ outline: 'none' }}
-    >
+    <div style={{ outline: 'none', padding: 12 }}>
       {!gameOver && (
         <PulseIndicator
           color={pulseIndicatorProps.color}
           text={pulseIndicatorProps.text}
-        ></PulseIndicator>
+        />
       )}
       {!gameOver && (
         <div className="mazeGameCountDownTimer">
           <CountdownCircleTimer
+            key={timerKey}
             isPlaying
-            duration={30}
+            duration={timerDuration}
             colors={['#004777', '#F7B801', '#A30000', '#A30000']}
-            colorsTime={[10, 6, 3, 0]}
-            onComplete={() => ({ shouldRepeat: true, delay: 1 })}
+            colorsTime={[
+              Math.max(1, Math.floor(timerDuration * 0.66)),
+              Math.max(1, Math.floor(timerDuration * 0.33)),
+              Math.max(0, Math.floor(timerDuration * 0.1)),
+              0,
+            ]}
+            onComplete={() => {
+              finishLose();
+              return { shouldRepeat: false };
+            }}
             size={75}
           >
             {renderTime}
@@ -157,7 +294,20 @@ const MazeGame: React.FC = () => {
         </div>
       )}
       {gameOver && <h1>{gameOverText}</h1>}
-      <GameBoard road={road} playerPosition={playerPosition} />
+      <p style={{ margin: '8px 0', fontWeight: 600 }}>
+        Draw with your finger along the black path. Hitting a wall costs{' '}
+        {WALL_PENALTY}s.
+      </p>
+      <GameBoard
+        ref={boardRef}
+        road={road}
+        playerPosition={playerPosition}
+        trail={trail}
+        drawing={drawing}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+      />
     </div>
   );
 };

@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import _ from 'lodash';
-import { useRouter } from 'next/router';
+import MazeGame from '@/components/MazeGame/MazeGame';
 
 interface KillForm {
   copText: { value: string };
@@ -16,8 +16,6 @@ interface Drug {
 }
 
 const KnarkGame: React.FC = () => {
-  const router = useRouter();
-  const showMazeGame = router.query.mupp;
   const cookieName = 'pip182';
   const setCookie = (name: string, value: number) => {
     localStorage.setItem(name, value.toString());
@@ -110,6 +108,7 @@ const KnarkGame: React.FC = () => {
   const [yourdrugs, setYourDrugs] = useState<Drug[]>([]);
   const [gameLayer1, setGameLayer1] = useState(true);
   const [gameLayer2, setGameLayer2] = useState(false);
+  const [showMazeGame, setShowMazeGame] = useState(false);
   const [sAvail, setSAvail] = useState(100);
   const [sLeft, setSLeft] = useState(0);
   const [init, setInit] = useState(false);
@@ -191,27 +190,41 @@ const KnarkGame: React.FC = () => {
     return;
   };
 
+  const startPoliceEncounter = () => {
+    alert('Coppers are here!! Fight or run!');
+    setGameLayer1(false);
+    setGameLayer2(true);
+    setShowMazeGame(false);
+    killForm.copText.value = '';
+    setYourHp(50);
+    setCopHp(50);
+    refreshCops();
+  };
+
   const runAway = () => {
-    let run = random(2);
-    if (run === 1) {
-      alert('Du lyckades fly.');
-      setGameLayer1(true);
-      setGameLayer2(false);
-      return;
-    }
-    if (run === 2) {
-      alert('Det gick inte, försök igen eller slåss som en man.');
-      let hit = random(20);
-      setYourHp(yourHp - hit);
-      killForm.copText.value = 'Bången orsakade ' + hit + ' kulhål på dig.';
-      if (refreshCops() === 1) {
-        alert('Bången spöade skiten ur dig!!');
-        setDaysLeft(0);
-        setGameLayer1(true);
-        setGameLayer2(false);
-        RefreshSale();
-      }
-    }
+    setGameLayer2(false);
+    setGameLayer1(false);
+    setShowMazeGame(true);
+  };
+
+  const onMazeEscape = () => {
+    alert('You escaped the cops through the alley!');
+    setShowMazeGame(false);
+    setGameLayer1(true);
+    setGameLayer2(false);
+  };
+
+  const onMazeCaught = () => {
+    alert('The cops caught you!! Game over.');
+    setShowMazeGame(false);
+    setGameLayer1(true);
+    setGameLayer2(false);
+    setYourDrugs([]);
+    setCash(2500);
+    setSLeft(0);
+    setSAvail(100);
+    setDaysLeft(31);
+    setFirstTime(0);
   };
 
   const random = (maxValue: number) => {
@@ -248,15 +261,11 @@ const KnarkGame: React.FC = () => {
   };
 
   const randomevent = () => {
+    const forcePoliceEveryDay = true; // testing — set false to restore random chance
     let x = random(3);
-    if (x === 3 && !firstTime) {
-      alert('Bången är här, det blir skottlossning!');
-      setGameLayer1(false);
-      setGameLayer2(true);
-      killForm.copText.value = '';
-      setYourHp(50);
-      setCopHp(50);
-      refreshCops();
+    if (forcePoliceEveryDay || x === 3) {
+      startPoliceEncounter();
+      return;
     }
     if (x === 1) {
       let xx = random(12);
@@ -333,37 +342,6 @@ const KnarkGame: React.FC = () => {
         let x = random(12) - 1;
         alert('Ful ' + drugs[x].name + ' cirkulerar! Priserna 1/4 av vanliga.');
         drugs[x].price = drugs[x].price / 4;
-      }
-      if (xx === 14) {
-        alert('Inbrott på apoteket, Exstacypriserna låga.');
-        drugs[11].price = 1 + random(10);
-      }
-      if (xx === 15) {
-        let x = 500 + random(100);
-        let x2 = confirm(
-          'Do you want to modify your pouch to hold another 50 drugs for ' +
-            Currency(x) +
-            '?',
-        );
-        if (x2 === true && cash >= x) {
-          setCash(cash - Number(x));
-          setSAvail(sAvail + 50);
-        } else if (x2 === true && cash < x) {
-          alert('Not enough cash!');
-        }
-      }
-      if (xx === 16) {
-        alert('Pounders pay alot of money for some golden brown.');
-        drugs[x].price = 20000 + random(20000);
-      }
-      if (xx === 17 || xx === 13 || xx === 18) {
-        alert('Coppers are here, get ready for a shootout!');
-        setGameLayer1(false);
-        setGameLayer2(true);
-        killForm.copText.value = '';
-        setYourHp(50);
-        setCopHp(50);
-        refreshCops();
       }
     }
   };
@@ -462,10 +440,13 @@ const KnarkGame: React.FC = () => {
 
   return (
     <>
+      {showMazeGame && (
+        <MazeGame onEscape={onMazeEscape} onCaught={onMazeCaught} />
+      )}
       {gameLayer2 && !showMazeGame && (
         <div id="gameLayer2" className="layerClass">
           <form name="killForm">
-            <p>Coopers are here!!</p>
+            <p>Coppers are here!!</p>
             <hr />
             <br />
             <table>
