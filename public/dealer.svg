@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 80" shape-rendering="crispEdges">
+  <!-- Generic arcade street dealer sprite -->
+  <rect width="64" height="80" fill="#000000"/>
+
+  <!-- beanie -->
+  <rect x="18" y="6" width="28" height="12" fill="#5a2d82"/>
+  <rect x="16" y="14" width="32" height="4" fill="#4a246c"/>
+  <rect x="28" y="2" width="8" height="6" fill="#7a3aad"/>
+  <!-- beanie stripe -->
+  <rect x="18" y="10" width="28" height="2" fill="#f0c040"/>
+
+  <!-- messy hair peeking -->
+  <rect x="16" y="16" width="6" height="4" fill="#3a2818"/>
+  <rect x="42" y="16" width="6" height="4" fill="#3a2818"/>
+
+  <!-- head / pale tired face -->
+  <rect x="20" y="18" width="24" height="18" fill="#d4a882"/>
+  <!-- heavy lids / shifty eyes -->
+  <rect x="24" y="24" width="6" height="3" fill="#1a1a1a"/>
+  <rect x="36" y="24" width="6" height="3" fill="#1a1a1a"/>
+  <rect x="25" y="24" width="3" height="2" fill="#6ec6ff"/>
+  <rect x="37" y="24" width="3" height="2" fill="#6ec6ff"/>
+  <!-- nose -->
+  <rect x="30" y="28" width="4" height="3" fill="#c4896a"/>
+  <!-- grin -->
+  <rect x="26" y="32" width="12" height="2" fill="#8a4a3a"/>
+  <rect x="28" y="31" width="2" height="2" fill="#f5f5f5"/>
+  <rect x="34" y="31" width="2" height="2" fill="#f5f5f5"/>
+
+  <!-- neck -->
+  <rect x="28" y="36" width="8" height="4" fill="#d4a882"/>
+
+  <!-- oversized hoodie -->
+  <rect x="12" y="40" width="40" height="26" fill="#2a6b3c"/>
+  <!-- hoodie pocket -->
+  <rect x="22" y="52" width="20" height="10" fill="#1f5230"/>
+  <!-- hoodie strings -->
+  <rect x="26" y="40" width="2" height="10" fill="#cfcfcf"/>
+  <!-- stash bag outline in pocket -->
+  <rect x="28" y="54" width="8" height="6" fill="#8bc34a"/>
+  <rect x="30" y="55" width="4" height="2" fill="#dcedc8"/>
+
+  <!-- arms -->
+  <rect x="4" y="42" width="8" height="18" fill="#2a6b3c"/>
+  <rect x="52" y="42" width="8" height="18" fill="#2a6b3c"/>
+  <!-- hands -->
+  <rect x="4" y="60" width="8" height="6" fill="#d4a882"/>
+  <rect x="52" y="60" width="8" height="6" fill="#d4a882"/>
+
+  <!-- cash in left hand -->
+  <rect x="2" y="58" width="6" height="4" fill="#3ecf6a"/>
+  <rect x="3" y="59" width="4" height="2" fill="#1d5c3b"/>
+
+  <!-- baggy pants -->
+  <rect x="16" y="66" width="14" height="10" fill="#3a3a48"/>
+  <rect x="34" y="66" width="14" height="10" fill="#3a3a48"/>
+
+  <!-- sneakers -->
+  <rect x="14" y="76" width="16" height="4" fill="#e84d4d"/>
+  <rect x="34" y="76" width="16" height="4" fill="#e84d4d"/>
+  <rect x="26" y="76" width="4" height="2" fill="#f5f5f5"/>
+  <rect x="46" y="76" width="4" height="2" fill="#f5f5f5"/>
+</svg>

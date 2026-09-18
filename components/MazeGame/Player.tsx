@@ -1,5 +1,3 @@
-// src/components/Player.tsx
-
 import React from 'react';
 
 interface PlayerProps {
@@ -9,21 +7,21 @@ interface PlayerProps {
 }
 
 const Player: React.FC<PlayerProps> = ({ x, y, cellSize = 50 }) => {
-  const inset = cellSize * 0.15;
+  const size = cellSize * 0.62;
+  const offset = (cellSize - size) / 2;
+
   return (
     <div
+      className="mazePlayer"
       style={{
-        position: 'absolute',
-        top: y * cellSize + inset,
-        left: x * cellSize + inset,
-        width: cellSize - inset * 2,
-        height: cellSize - inset * 2,
-        backgroundColor: 'red',
-        borderRadius: '50%',
-        pointerEvents: 'none',
-        boxShadow: '0 0 0 2px rgba(255,255,255,0.6)',
+        top: y * cellSize + offset,
+        left: x * cellSize + offset,
+        width: size,
+        height: size,
       }}
-    />
+    >
+      <span className="mazePlayerCore" />
+    </div>
   );
 };
 

@@ -1,14 +1,9 @@
-// src/MazeGame.tsx
-
-import React, { useEffect, useRef, useState } from 'react';
-import GameBoard, { CELL_SIZE } from '@/components/MazeGame/GameBoard';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import GameBoard from '@/components/MazeGame/GameBoard';
 import PulseIndicator, { PulseIndicatorProps } from './PulseIndicator';
 import { CountdownCircleTimer } from 'react-countdown-circle-timer';
-
-interface Cell {
-  x: number;
-  y: number;
-}
+import { Cell, generateEscapePath } from './generateEscapePath';
+import { useTranslation } from 'react-i18next';
 
 interface Point {
   x: number;
@@ -22,51 +17,79 @@ interface MazeGameProps {
 
 const INITIAL_TIME = 30;
 const WALL_PENALTY = 4;
+const WALL_PENALTY_COOLDOWN_MS = 1600;
 
 const MazeGame: React.FC<MazeGameProps> = ({ onEscape, onCaught }) => {
-  const road = [
-    [0, 0, 0, 1, 0, 0, 0, 0],
-    [0, 0, 0, 1, 1, 1, 0, 0],
-    [0, 0, 0, 0, 0, 1, 0, 0],
-    [0, 0, 0, 0, 0, 1, 0, 0],
-    [0, 1, 1, 1, 1, 1, 0, 0],
-    [0, 1, 0, 0, 0, 0, 0, 0],
-    [0, 1, 0, 0, 0, 0, 0, 0],
-    [0, 1, 1, 1, 1, 0, 0, 0],
-    [0, 0, 0, 0, 1, 0, 0, 0],
-    [0, 0, 0, 0, 1, 0, 0, 0],
-    [0, 0, 0, 0, 1, 0, 0, 0],
-    [0, 0, 0, 1, 1, 0, 0, 0],
-    [0, 0, 0, 1, 0, 0, 0, 0],
-    [0, 0, 0, 1, 0, 0, 0, 0],
-  ];
+  const { t } = useTranslation();
+  const { road, start: startCell } = useMemo(
+    () => generateEscapePath(8, 14),
+    [],
+  );
 
-  const startCell: Cell = { x: 3, y: road.length - 1 };
   const [playerPosition, setPlayerPosition] = useState<Cell>(startCell);
   const [trail, setTrail] = useState<Point[]>([]);
   const [drawing, setDrawing] = useState(false);
   const [gameOver, setGameOver] = useState(false);
-  const [gameOverText, setGameOverText] = useState('YOU MANAGED TO ESCAPE!!');
+  const [gameOverText, setGameOverText] = useState('');
   const [timerKey, setTimerKey] = useState(0);
   const [timerDuration, setTimerDuration] = useState(INITIAL_TIME);
+  const [cellSize, setCellSize] = useState(36);
+  const [wallFlash, setWallFlash] = useState(false);
   const [pulseIndicatorProps, setPulseIndicatorProps] =
     useState<PulseIndicatorProps>({
       color: 'warning',
-      text: 'DRAW ALONG THE PATH TO ESCAPE!!',
+      text: '',
     });
 
   const finishedRef = useRef(false);
   const boardRef = useRef<HTMLDivElement>(null);
+  const boardAreaRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<Cell>(startCell);
   const remainingRef = useRef(INITIAL_TIME);
   const onWallRef = useRef(false);
+  const lastPenaltyAtRef = useRef(0);
   const lastPixelRef = useRef<Point | null>(null);
+  const cellSizeRef = useRef(36);
+
+  useEffect(() => {
+    const area = boardAreaRef.current;
+    if (!area) return;
+
+    const updateSize = () => {
+      const cols = road[0]?.length ?? 1;
+      const rows = road.length;
+      const availableW = Math.max(0, area.clientWidth - 8);
+      const availableH = Math.max(0, area.clientHeight - 8);
+      const next = Math.max(
+        22,
+        Math.min(
+          Math.floor(availableW / cols),
+          Math.floor(availableH / rows),
+          48,
+        ),
+      );
+      cellSizeRef.current = next;
+      setCellSize(next);
+    };
+
+    updateSize();
+    const observer = new ResizeObserver(updateSize);
+    observer.observe(area);
+    return () => observer.disconnect();
+  }, [road]);
+
+  useEffect(() => {
+    const id = window.setTimeout(() => {
+      boardRef.current?.scrollIntoView({ block: 'end', behavior: 'smooth' });
+    }, 50);
+    return () => window.clearTimeout(id);
+  }, [cellSize]);
 
   const finishWin = () => {
     if (finishedRef.current) return;
     finishedRef.current = true;
     setDrawing(false);
-    setGameOverText('YOU MANAGED TO ESCAPE!!');
+    setGameOverText(t('maze.escaped'));
     setGameOver(true);
     onEscape();
   };
@@ -75,7 +98,7 @@ const MazeGame: React.FC<MazeGameProps> = ({ onEscape, onCaught }) => {
     if (finishedRef.current) return;
     finishedRef.current = true;
     setDrawing(false);
-    setGameOverText('YOU GOT CAUGHT! SURRENDER YOUR ANUS!');
+    setGameOverText(t('maze.caught'));
     setGameOver(true);
     onCaught();
   };
@@ -85,7 +108,9 @@ const MazeGame: React.FC<MazeGameProps> = ({ onEscape, onCaught }) => {
   const isAdjacentOrSame = (a: Cell, b: Cell) =>
     Math.abs(a.x - b.x) + Math.abs(a.y - b.y) <= 1;
 
-  const getLocalPoint = (event: React.PointerEvent<HTMLDivElement>): Point | null => {
+  const getLocalPoint = (
+    event: React.PointerEvent<HTMLDivElement>,
+  ): Point | null => {
     const board = boardRef.current;
     if (!board) return null;
     const rect = board.getBoundingClientRect();
@@ -96,14 +121,15 @@ const MazeGame: React.FC<MazeGameProps> = ({ onEscape, onCaught }) => {
   };
 
   const pixelToCell = (point: Point): Cell => ({
-    x: Math.floor(point.x / CELL_SIZE),
-    y: Math.floor(point.y / CELL_SIZE),
+    x: Math.floor(point.x / cellSizeRef.current),
+    y: Math.floor(point.y / cellSizeRef.current),
   });
 
   const sampleLine = (from: Point, to: Point): Point[] => {
     const dx = to.x - from.x;
     const dy = to.y - from.y;
-    const steps = Math.max(1, Math.ceil(Math.hypot(dx, dy) / 4));
+    const step = Math.max(2, cellSizeRef.current / 8);
+    const steps = Math.max(1, Math.ceil(Math.hypot(dx, dy) / step));
     const points: Point[] = [];
     for (let i = 1; i <= steps; i++) {
       const t = i / steps;
@@ -116,15 +142,36 @@ const MazeGame: React.FC<MazeGameProps> = ({ onEscape, onCaught }) => {
   };
 
   const applyWallPenalty = () => {
-    if (onWallRef.current || finishedRef.current || gameOver) return;
+    if (finishedRef.current || gameOver) return;
+
+    const now = Date.now();
+    const sinceLast = now - lastPenaltyAtRef.current;
+
+    // Still on / grazing hazard during cooldown: warn, but don't stack penalties
+    if (sinceLast < WALL_PENALTY_COOLDOWN_MS) {
+      if (!onWallRef.current) {
+        onWallRef.current = true;
+        setPulseIndicatorProps({
+          color: 'danger',
+          text: t('maze.stillOnHazard'),
+        });
+        setWallFlash(true);
+        window.setTimeout(() => setWallFlash(false), 180);
+      }
+      return;
+    }
+
+    lastPenaltyAtRef.current = now;
     onWallRef.current = true;
 
     const next = Math.max(0, remainingRef.current - WALL_PENALTY);
     remainingRef.current = next;
     setPulseIndicatorProps({
       color: 'danger',
-      text: `WALL HIT! -${WALL_PENALTY}s!!`,
+      text: t('maze.hazardHit', { seconds: WALL_PENALTY }),
     });
+    setWallFlash(true);
+    window.setTimeout(() => setWallFlash(false), 280);
 
     if (next <= 0) {
       finishLose();
@@ -145,12 +192,11 @@ const MazeGame: React.FC<MazeGameProps> = ({ onEscape, onCaught }) => {
       onWallRef.current = false;
       setPulseIndicatorProps({
         color: 'success',
-        text: 'BACK ON PATH — KEEP DRAWING!!',
+        text: t('maze.backOnPath'),
       });
     }
 
     if (!isAdjacentOrSame(playerRef.current, cell)) {
-      // Jumped too far off continuous path — treat as leaving the route
       applyWallPenalty();
       return;
     }
@@ -170,13 +216,13 @@ const MazeGame: React.FC<MazeGameProps> = ({ onEscape, onCaught }) => {
   const handleDrawPoint = (point: Point) => {
     if (finishedRef.current || gameOver) return;
 
+    const size = cellSizeRef.current;
     const last = lastPixelRef.current;
     const samples = last ? sampleLine(last, point) : [point];
     lastPixelRef.current = point;
 
     setTrail((prev) => {
       const next = [...prev, ...samples];
-      // Keep trail from getting huge on long strokes
       return next.length > 800 ? next.slice(next.length - 800) : next;
     });
 
@@ -184,8 +230,8 @@ const MazeGame: React.FC<MazeGameProps> = ({ onEscape, onCaught }) => {
       if (
         sample.x < 0 ||
         sample.y < 0 ||
-        sample.x >= (road[0]?.length ?? 0) * CELL_SIZE ||
-        sample.y >= road.length * CELL_SIZE
+        sample.x >= (road[0]?.length ?? 0) * size ||
+        sample.y >= road.length * size
       ) {
         applyWallPenalty();
         continue;
@@ -204,11 +250,10 @@ const MazeGame: React.FC<MazeGameProps> = ({ onEscape, onCaught }) => {
     if (!point) return;
 
     const cell = pixelToCell(point);
-    // Must start drawing from the current player cell
     if (cell.x !== playerRef.current.x || cell.y !== playerRef.current.y) {
       setPulseIndicatorProps({
         color: 'danger',
-        text: 'START FROM THE RED DOT!!',
+        text: t('maze.startFromDot'),
       });
       return;
     }
@@ -219,7 +264,7 @@ const MazeGame: React.FC<MazeGameProps> = ({ onEscape, onCaught }) => {
     setTrail((prev) => [...prev, point]);
     setPulseIndicatorProps({
       color: 'success',
-      text: 'TRACE THE BLACK PATH!!',
+      text: t('maze.traceAlley'),
     });
   };
 
@@ -241,7 +286,7 @@ const MazeGame: React.FC<MazeGameProps> = ({ onEscape, onCaught }) => {
     if (!gameOver && !finishedRef.current) {
       setPulseIndicatorProps({
         color: 'warning',
-        text: 'DRAW ALONG THE PATH TO ESCAPE!!',
+        text: t('maze.drawPath'),
       });
     }
   };
@@ -250,64 +295,105 @@ const MazeGame: React.FC<MazeGameProps> = ({ onEscape, onCaught }) => {
     playerRef.current = playerPosition;
   }, [playerPosition]);
 
+  useEffect(() => {
+    setPulseIndicatorProps({
+      color: 'warning',
+      text: t('maze.drawPath'),
+    });
+  }, [t]);
+
   const renderTime = ({ remainingTime }: { remainingTime: number }) => {
     remainingRef.current = remainingTime;
     if (remainingTime === 0) {
-      return <div className="timer">GAME OVER</div>;
+      return <div className="mazeTimerValue">0</div>;
     }
-    return (
-      <div className="timer">
-        <div className="value">{remainingTime}s</div>
-      </div>
-    );
+    return <div className="mazeTimerValue">{remainingTime}</div>;
   };
 
   return (
-    <div style={{ outline: 'none', padding: 12 }}>
-      {!gameOver && (
-        <PulseIndicator
-          color={pulseIndicatorProps.color}
-          text={pulseIndicatorProps.text}
-        />
-      )}
-      {!gameOver && (
-        <div className="mazeGameCountDownTimer">
-          <CountdownCircleTimer
-            key={timerKey}
-            isPlaying
-            duration={timerDuration}
-            colors={['#004777', '#F7B801', '#A30000', '#A30000']}
-            colorsTime={[
-              Math.max(1, Math.floor(timerDuration * 0.66)),
-              Math.max(1, Math.floor(timerDuration * 0.33)),
-              Math.max(0, Math.floor(timerDuration * 0.1)),
-              0,
-            ]}
-            onComplete={() => {
-              finishLose();
-              return { shouldRepeat: false };
-            }}
-            size={75}
-          >
-            {renderTime}
-          </CountdownCircleTimer>
+    <div className="mazeScreen">
+      <div className="mazeCabinet">
+        <header className="mazeHeader">
+          <div className="mazeHeaderCopy">
+            <p className="mazeEyebrow">{t('maze.eyebrow')}</p>
+            <h1 className="mazeTitle">{t('maze.title')}</h1>
+            <p className="mazeHint">
+              {t('maze.hint', { seconds: WALL_PENALTY })}
+            </p>
+          </div>
+          {!gameOver && (
+            <div className="mazeTimerWrap">
+              <CountdownCircleTimer
+                key={timerKey}
+                isPlaying
+                duration={timerDuration}
+                colors={['#3ecf6a', '#f0c040', '#e84d4d', '#e84d4d']}
+                colorsTime={[
+                  Math.max(1, Math.floor(timerDuration * 0.66)),
+                  Math.max(1, Math.floor(timerDuration * 0.33)),
+                  Math.max(0, Math.floor(timerDuration * 0.1)),
+                  0,
+                ]}
+                onComplete={() => {
+                  finishLose();
+                  return { shouldRepeat: false };
+                }}
+                size={72}
+                strokeWidth={7}
+                trailColor="#1a2a1c"
+              >
+                {renderTime}
+              </CountdownCircleTimer>
+              <span className="mazeTimerLabel">{t('maze.sec')}</span>
+            </div>
+          )}
+        </header>
+
+        {!gameOver && (
+          <PulseIndicator
+            color={pulseIndicatorProps.color}
+            text={pulseIndicatorProps.text || t('maze.drawPath')}
+          />
+        )}
+
+        {gameOver && <div className="mazeGameOver">{gameOverText}</div>}
+
+        <div className="mazeLegend">
+          <span>
+            <i className="mazeLegendSwatch mazeLegend-path" /> {t('maze.safePath')}
+          </span>
+          <span className="mazeLegendDanger">
+            <i className="mazeLegendSwatch mazeLegend-wall" />{' '}
+            {t('maze.hazard', { seconds: WALL_PENALTY })}
+          </span>
+          <span>
+            <i className="mazeLegendSwatch mazeLegend-you" /> {t('maze.you')}
+          </span>
         </div>
-      )}
-      {gameOver && <h1>{gameOverText}</h1>}
-      <p style={{ margin: '8px 0', fontWeight: 600 }}>
-        Draw with your finger along the black path. Hitting a wall costs{' '}
-        {WALL_PENALTY}s.
-      </p>
-      <GameBoard
-        ref={boardRef}
-        road={road}
-        playerPosition={playerPosition}
-        trail={trail}
-        drawing={drawing}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-      />
+
+        <div className="mazeDangerBanner" role="note">
+          <strong>{t('maze.noGo')}</strong>
+          <span>{t('maze.noGoHint', { seconds: WALL_PENALTY })}</span>
+        </div>
+
+        <div ref={boardAreaRef} className="mazeBoardArea">
+          <GameBoard
+            ref={boardRef}
+            road={road}
+            playerPosition={playerPosition}
+            start={startCell}
+            trail={trail}
+            drawing={drawing}
+            cellSize={cellSize}
+            wallFlash={wallFlash}
+            inLabel={t('maze.in')}
+            outLabel={t('maze.out')}
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+          />
+        </div>
+      </div>
     </div>
   );
 };
