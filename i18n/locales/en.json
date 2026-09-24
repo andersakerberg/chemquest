@@ -1,4 +1,10 @@
 {
+  "splash": {
+    "eyebrow": "Morgongåva Hacker Association",
+    "title": "SELL DRUGS!",
+    "tagline": "The classic street dealing game",
+    "loading": "Loading game..."
+  },
   "lang": {
     "sv": "SV",
     "en": "EN",

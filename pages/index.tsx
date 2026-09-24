@@ -1,5 +1,5 @@
 'use client';
-import React, { useCallback, useState, useEffect } from 'react';
+import React, { useCallback, useRef, useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import MazeGame from '@/components/MazeGame/MazeGame';
 import TradingScreen, {
@@ -11,6 +11,12 @@ import GameNotice, {
   NoticeTone,
 } from '@/components/GameNotice';
 import ShootoutScreen, { MAX_HP } from '@/components/ShootoutScreen';
+import SplashScreen from '@/components/SplashScreen';
+import {
+  getHighScore,
+  setHighScore,
+  type GameStorageState,
+} from '@/lib/storage';
 
 const BASE_PRICES = [
   420, 500, 1500, 2000, 10000, 1000, 7000, 15000, 200, 300, 3000, 30,
@@ -67,23 +73,14 @@ const rollPrices = (prices: MarketDrug[]): MarketDrug[] =>
     return { ...drug, price };
   });
 
-const KnarkGame: React.FC = () => {
+interface KnarkGameProps {
+  initialHighScore?: number;
+}
+
+const KnarkGame: React.FC<KnarkGameProps> = ({ initialHighScore = 0 }) => {
   const { t } = useTranslation();
-  const cookieName = 'pip182';
   const drugLabel = (name: string) =>
     t(`drugs.${name}`, { defaultValue: name });
-  const setCookie = (name: string, value: number) => {
-    localStorage.setItem(name, value.toString());
-  };
-  const getCookie = (name: string): number => {
-    if (typeof localStorage !== 'undefined') {
-      const fromLocalStorage = localStorage.getItem(name);
-      if (fromLocalStorage) {
-        return parseInt(fromLocalStorage, 10);
-      }
-    }
-    return 0;
-  };
 
   const [drugs, setDrugs] = useState<MarketDrug[]>(INITIAL_DRUGS);
   const [cash, setCash] = useState(2500);
@@ -97,10 +94,13 @@ const KnarkGame: React.FC = () => {
   const [showMazeGame, setShowMazeGame] = useState(false);
   const [pocketCapacity, setPocketCapacity] = useState(100);
   const [init, setInit] = useState(false);
-  const [oldScore, setOldScore] = useState(0);
+  const [oldScore, setOldScore] = useState(initialHighScore);
   const [noticeQueue, setNoticeQueue] = useState<GameNoticeData[]>([]);
   const [combatLog, setCombatLog] = useState<string[]>([]);
   const [hasFired, setHasFired] = useState(false);
+  /** Days remaining before another police raid can roll. Ref so same-tick RefreshSale sees it. */
+  const policeCooldownRef = useRef(0);
+  const POLICE_COOLDOWN_DAYS = 3;
 
   const pushNotice = useCallback(
     (
@@ -214,6 +214,7 @@ const KnarkGame: React.FC = () => {
   };
 
   const startPoliceEncounter = () => {
+    policeCooldownRef.current = POLICE_COOLDOWN_DAYS;
     pushNotice(t('notice.raidMessage'), {
       title: t('notice.raidTitle'),
       tone: 'danger',
@@ -224,12 +225,17 @@ const KnarkGame: React.FC = () => {
 
   const randomevent = () => {
     const forcePoliceEveryDay = false; // testing — set true to force police every day
+    // Street event only ~1/3 of days. Police is ~1/3 of those → ~1 in 9 days.
     const x = random(3);
-    if (forcePoliceEveryDay || x === 3) {
+    if (x !== 1 && !forcePoliceEveryDay) return;
+
+    if (
+      forcePoliceEveryDay ||
+      (policeCooldownRef.current <= 0 && random(3) === 3)
+    ) {
       startPoliceEncounter();
       return;
     }
-    if (x !== 1) return;
 
     const xx = random(12);
 
@@ -333,7 +339,7 @@ const KnarkGame: React.FC = () => {
     });
     if (beatRecord) {
       message += t('notice.newRecord');
-      setCookie(cookieName, finalCash);
+      setHighScore(finalCash);
       setOldScore(finalCash);
     }
     pushNotice(message, {
@@ -347,9 +353,10 @@ const KnarkGame: React.FC = () => {
     setPocketCapacity(100);
     setDrugs(rollPrices(INITIAL_DRUGS));
     setFirstTime(0);
+    policeCooldownRef.current = 0;
   };
 
-  const RefreshSale = () => {
+  const RefreshSale = (options?: { skipEvent?: boolean }) => {
     if (daysLeft <= 0) {
       endRun(cash);
       return;
@@ -366,6 +373,12 @@ const KnarkGame: React.FC = () => {
     }
 
     setDaysLeft((d) => d - 1);
+    policeCooldownRef.current = Math.max(0, policeCooldownRef.current - 1);
+
+    if (options?.skipEvent) {
+      setFirstTime(1);
+      return;
+    }
 
     if (firstTime > 0) {
       randomevent();
@@ -395,8 +408,8 @@ const KnarkGame: React.FC = () => {
       setCash((c) => c + loot);
       setGameLayer1(true);
       setGameLayer2(false);
-      setFirstTime(0);
-      RefreshSale();
+      // Advance the day after a win, but never roll another raid immediately
+      RefreshSale({ skipEvent: true });
       return;
     }
 
@@ -453,8 +466,7 @@ const KnarkGame: React.FC = () => {
   };
 
   useEffect(() => {
-    const savedRecord = getCookie(cookieName);
-    setOldScore(savedRecord);
+    setOldScore(getHighScore() || initialHighScore);
     if (!init) {
       setDrugs(rollPrices(INITIAL_DRUGS));
       setDaysLeft((d) => d - 1);
@@ -498,4 +510,19 @@ const KnarkGame: React.FC = () => {
   );
 };
 
-export default KnarkGame;
+const HomePage: React.FC = () => {
+  const [storage, setStorage] = useState<GameStorageState | null>(null);
+
+  const handleSplashReady = useCallback((state: GameStorageState) => {
+    setStorage(state);
+  }, []);
+
+  return (
+    <>
+      <SplashScreen onReady={handleSplashReady} />
+      {storage && <KnarkGame initialHighScore={storage.highScore} />}
+    </>
+  );
+};
+
+export default HomePage;

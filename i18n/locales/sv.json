@@ -1,4 +1,10 @@
 {
+  "splash": {
+    "eyebrow": "Morgongåva Hacker Association",
+    "title": "SÄLJA KNARK!",
+    "tagline": "Gatans klassiska dealspel",
+    "loading": "Laddar spelet..."
+  },
   "lang": {
     "sv": "SV",
     "en": "EN",
